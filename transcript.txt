@@ -1,0 +1,130 @@
+================================================================================
+GAME TRANSCRIPT - Love Simulator: Escape from Ex
+================================================================================
+Date: 2025-12-04
+Game Version: Original (without PDDL planner)
+Test Scenario: Victory Ending
+================================================================================
+
+========================================
+Win Scenario Test
+========================================
+
+==========================================================
+'Love Simulator  Escape from Ex'
+Three days after the breakup, this is the last time you slept on this bed.
+Clothes and traces of the argument are scattered on the floor.
+Enter 'help.' Check the instructions and hurry to escape this place full of memories!
+==========================================================
+
+Step 1: Take hat
+> take(hat).
+You pick up hat!
+You're wearing a green hat... EX seems to be deliberately avoiding you.
+EX moves to storage!
+
+Step 2: Go south to hallway
+> go(south).
+You move south to the hallway.
+The corridor is narrow and oppressive, and you feel like you can't breathe...
+The mental value--(10,8)!
+EX moves to hallway!
+
+Step 3: Go west to kitchen
+> go(west).
+You move west to the kitchen.
+The kitchen sink is piled with dirty dishes, and you remember the arguments from the past...
+The mental value--(8,7)!
+A roar of from next door:'Are you going to steal the keys too?'
+EX moves to bedroom!
+
+Step 4: Take key
+> take(key).
+You pick up key!
+EX moves to hallway!
+
+Step 5: Go east back to hallway
+> go(east).
+You move east to the hallway.
+The corridor is narrow and oppressive, and you feel like you can't breathe...
+The mental value--(7,5)!
+EX moves to kitchen!
+
+Step 6: Go southeast to storage
+> go(southeast).
+You move southeast to the storage.
+The storage room is filled with clutter, and there seems to be a suitcase in the corner...
+EX moves to hallway!
+
+Step 7: Take suitcase
+> take(suitcase).
+You pick up suitcase!
+EX moves to bedroom!
+
+Step 8: Check status
+> inventory.
+Backpack items: [suitcase,key,hat]
+
+> mental.
+Current mental value: 5
+
+Current game state:
+- Player location: storage
+- EX location: bedroom
+- Mental value: 5/10
+- Inventory: suitcase, key, hat
+
+EX moves to hallway!
+
+Step 9: Go south to doorway
+> go(south).
+You move south to the doorway.
+The entrance door is slightly ajar, and outside is freedom...
+but you can hear EX's breathing.
+EX moves to bedroom!
+
+Step 10: Go south to exit
+> go(south).
+You move south to the exit.
+
+================================================================================
+VICTORY ENDING
+================================================================================
+The door opens, cold wind pours in, and a 'goodbye' comes from behind...
+You successfully escaped!
+================================================================================
+
+WIN CONDITION TRIGGERED!
+- Player reached: exit
+- Player has: key, suitcase
+- EX is not at exit (EX at: bedroom)
+- Mental value: 5 (survived)
+
+Test completed successfully!
+
+================================================================================
+GAME STATISTICS
+================================================================================
+Total Moves: 10
+Mental Value: Started at 10, ended at 5
+Items Collected: 3 (hat, key, suitcase)
+Rooms Visited: bedroom, hallway, kitchen, storage, doorway, exit
+EX Encounters: 0 (avoided due to hat)
+Ending: VICTORY
+
+================================================================================
+TECHNICAL NOTES
+================================================================================
+- Game engine: SWI-Prolog
+- Random EX movement: Active (moves after each player action)
+- Special mechanics tested:
+  * Hat (green hat) - EX avoidance behavior: WORKING
+  * Mental value system: WORKING (decreased in hallway and rooms)
+  * Inventory management: WORKING
+  * Win condition: WORKING
+  * Room connections: WORKING
+  * Item effects: WORKING
+
+================================================================================
+END OF TRANSCRIPT
+================================================================================

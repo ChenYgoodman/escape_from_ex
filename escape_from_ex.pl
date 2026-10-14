@@ -1,0 +1,379 @@
+start :-
+    write("Welcome to Love Simulator: Escape from Ex!"), nl,
+    write("Type 'help.' to see available commands"), nl,
+    initialize_world,
+    game_loop.
+
+% KNOWLEDGE BASE: FACTS
+
+% Map Display
+print_map :-
+    write("==========================================================="), nl,
+    write("                      GAME MAP                             "), nl,
+    write("==========================================================="), nl,
+    write("                     [bedroom]  (hat)                      "), nl,
+    write("                           ^  |                            "), nl,
+    write("                     north |  |  south                     "), nl,
+    write("                           |  v                            "), nl,
+    write("[kitchen]------east----->[hallway]<---west----[living_room]"), nl,
+    write("  (key)<-------west------| ^  |  |----east------->(photo)  "), nl,
+    write("                           |  |                  ^  |      "), nl,
+    write("                           |  |            north |  | south"), nl,
+    write("                           |  |                  |  v      "), nl,
+    write("                           |  |----southeast--->[storage]  "), nl,
+    write("                           |  |----northwest----(suitcase) "), nl,
+    write("                                                 ^  |      "), nl,
+    write("                                           north |  | south"), nl,
+    write("                                                 |  v      "), nl,
+    write("                                              [doorway]    "), nl,
+    write("                                                 ^  |      "), nl,
+    write("                                           north |  | south"), nl,
+    write("                                                 |  v      "), nl,
+    write("                                                [exit]     "), nl,
+    write("==========================================================="), nl.
+
+
+% Room definitions (7 rooms total)
+room(bedroom).
+room(hallway).
+room(living_room).
+room(kitchen).
+room(storage).
+room(doorway).
+room(exit).
+
+% Room connections (bidirectional)
+connected(bedroom, hallway, south).
+connected(hallway, bedroom, north).
+connected(hallway, living_room, east).
+connected(living_room, hallway, west).
+connected(living_room, storage, south).
+connected(storage, living_room, north).
+connected(hallway, kitchen, west).
+connected(kitchen, hallway, east).
+connected(hallway, storage, southeast).
+connected(storage, hallway, northwest).
+connected(storage, doorway, south).
+connected(doorway, storage, north).
+connected(doorway, exit, south).
+connected(exit, doorway, north).
+
+% Items and initial positions
+item(hat, bedroom).
+item(key, kitchen).
+item(suitcase, storage).
+item(photo, living_room).
+
+% Dynamic facts declarations
+:- dynamic(player_location/1).
+:- dynamic(inventory/1).
+:- dynamic(mental/1).
+:- dynamic(npc_location/1).
+:- dynamic(ex_mood/1).
+:- dynamic(item/2).
+:- dynamic(game_over/1).
+:- dynamic(use_planner/1).
+
+% INITIALIZATION
+
+initialize_world :-
+    retractall(player_location(_)), assert(player_location(bedroom)),
+    retractall(inventory(_)), assert(inventory([])),
+    retractall(mental(_)), assert(mental(10)),
+    retractall(npc_location(_)), assert(npc_location(living_room)),
+    retractall(ex_mood(_)), assert(ex_mood(calm)),
+    retractall(game_over(_)), assert(game_over(false)),
+    retractall(use_planner(_)), assert(use_planner(false)),
+    write("=========================================================="), nl,
+    write("Love Simulator: Escape from Ex"), nl,
+    write("Three days after the breakup, this is your last night here."), nl,
+    write("Collect the key and suitcase, then escape to freedom!"), nl,
+    write("Every action (e.g., map, mental) makes EX move."), nl,
+    write("Use this to control EX position."), nl,
+    write("At the beginning, EX is in the living room."), nl,
+    write("Now you're in bedroom, type 'take(hat) to pick it up so that it might repel EX!'"), nl,
+    write("=========================================================="), nl,
+    print_map.
+
+% CORE GAME LOOP
+
+game_loop :-
+    game_over(true),
+    write("Game over! Exiting..."), nl,
+    halt(0),
+    !.
+
+game_loop :-
+    (reconcile_condition; win_condition; lose_condition),
+    game_loop.
+
+game_loop :-
+    write("> "), read(Command),
+    execute_command(Command),
+    move_ex,
+    game_loop.
+
+% PLAYER COMMANDS
+
+execute_command(help) :-
+    write("Available commands:"), nl,
+    write("  go(direction). - Move in a direction (e.g., go(south))"), nl,
+    write("  take(item).    - Pick up an item (e.g., take(hat))"), nl,
+    write("  use(photo).    - Use the photo in living room"), nl,
+    write("  inventory.     - Check your backpack"), nl,
+    write("  mental.        - Check your mental value"), nl,
+    write("  map.           - Show the game map again"), nl,
+    write("  quit.          - Quit the game"), nl.
+
+execute_command(quit) :-
+    write("You chose to give up..."), nl, halt.
+
+execute_command(map) :-
+    print_map, !.
+
+execute_command(inventory) :-
+    inventory(Inv),
+    (Inv == [] -> write("The backpack is empty.") ; write("Backpack items: "), write(Inv)), nl.
+
+execute_command(mental) :-
+    mental(M), write("Current mental value: "), write(M), nl.
+
+% Movement command
+execute_command(go(Direction)) :-
+    player_location(Current),
+    connected(Current, Next, Direction),
+    retract(player_location(Current)),
+    assert(player_location(Next)),
+    format('You move ~w to the ~w.~n', [Direction, Next]),
+    room_event(Next).
+
+execute_command(go(Direction)) :-
+    write("Cannot move "), write(Direction), write("!"), nl.
+
+% Item pickup command
+execute_command(take(Item)) :-
+    player_location(Room),
+    item(Item, Room),
+    retract(item(Item, Room)),
+    inventory(Inv), retract(inventory(Inv)),
+    assert(inventory([Item|Inv])),
+    write("You pick up "), write(Item), write("!"), nl,
+    item_effect(Item).
+
+execute_command(take(Item)) :-
+    write(Item), write(" is not in the current room!"), nl.
+
+% Use photo command
+execute_command(use(photo)) :-
+    inventory(Inventory), member(photo, Inventory),
+    player_location(living_room),
+    mental(M), NewM is M - 1,
+    retract(mental(M)), assert(mental(NewM)),
+    retract(ex_mood(_)), assert(ex_mood(emotional)),
+    write("You look at the old photos... mental value: "), write(NewM), nl.
+
+execute_command(use(photo)) :-
+    write("You need to be in the living room with the photo!"), nl.
+
+execute_command(_) :-
+    write("Unknown command. Type 'help.' for available commands."), nl.
+
+% ROOM EVENTS
+
+room_event(bedroom) :-
+    inventory(Items),  % Get current backpack items
+    (\+ member(hat, Items) ->
+        % The hat has not been picked up
+        write("The bedroom still feels tense from your last argument..."), nl,
+        write("On the floor, you spot a green hat - it might repel EX!"), nl,
+        write("Type 'take(hat) so that you can pick it up.'"), nl;
+        % The hat has been picked up
+        write("The bedroom still feels tense, but you've already taken what you needed."), nl).
+
+room_event(hallway) :-
+    mental(M), NewM is M - 2,
+    retract(mental(M)), assert(mental(NewM)),
+    format('The narrow corridor makes you anxious. Mental: ~w~n', [NewM]).
+
+room_event(living_room) :-
+    mental(M), NewM is M - 2,
+    retract(mental(M)), assert(mental(NewM)),
+    format('Memories flood back from the photos... Mental: ~w~n', [NewM]).
+
+room_event(kitchen) :-
+    mental(M), NewM is M - 1,
+    retract(mental(M)), assert(mental(NewM)),
+    format('Dirty dishes remind you of past arguments... Mental: ~w~n', [NewM]),
+    retract(ex_mood(_)), assert(ex_mood(angry)),
+    write("EX shouts: 'Are you stealing the keys too?'"), nl,
+    write("You see a key hanging on the hook by the door!"), nl,
+    write("Type 'take(key)' to collect it (required for escape)."), nl.
+
+room_event(storage) :-
+    inventory(Items), member(suitcase, Items), !,
+    retract(ex_mood(_)), assert(ex_mood(chaser)),
+    write("You got the suitcase! EX is approaching fast..."), nl.
+
+room_event(storage) :-
+    write("The storage room is full of clutter..."), nl,
+    write("Your old suitcase is tucked in the corner!"), nl,
+    write("Type 'take(suitcase)' to grab it (required for escape)."), nl.
+
+room_event(doorway) :-
+    mental(M), M < 3, !,
+    write("This is where you first met... Can you really leave?"), nl,
+    write("You hear EX's footsteps getting closer..."), nl.
+
+room_event(doorway) :-
+    write("The front door is ajar. Freedom is so close..."), nl.
+
+room_event(exit) :- true.
+
+% ITEM EFFECTS
+
+item_effect(hat) :-
+    retract(ex_mood(_)), assert(ex_mood(avoid)),
+    write("Wearing the green hat... EX is avoiding you."), nl.
+
+item_effect(photo) :-
+    write("You hold the old photo, memories lingering..."), nl.
+
+item_effect(_).
+
+% EX MOVEMENT LOGIC (AI ADVERSARY)
+
+% Main move_ex entry point, uses PDDL if enabled
+move_ex :-
+    use_planner(true), !,
+    write("[AI] EX using PDDL planner..."), nl,
+    (call_pddl_planner(NextRoom) ->
+        move_ex_to_room(NextRoom)
+    ;
+        write("[AI] Planner failed, using fallback"), nl,
+        move_ex_fallback
+    ).
+
+move_ex :-
+    move_ex_fallback.
+
+% Execute planned move
+move_ex_to_room(NextRoom) :-
+    npc_location(Current),
+    (connected(Current, NextRoom, _) ->
+        retract(npc_location(Current)),
+        assert(npc_location(NextRoom)),
+        format('EX moves to ~w (PDDL-driven)~n', [NextRoom])
+    ;
+        write("[AI] Invalid move, using fallback"), nl,
+        move_ex_fallback
+    ).
+
+% Fallback movement strategies
+move_ex_fallback :-
+    ex_mood(avoid), !,
+    random(0, 2, Rand),
+    Rand == 1,
+    move_ex_base.
+
+move_ex_fallback :-
+    ex_mood(avoid), !,
+    write("EX is avoiding you and does not move!"), nl.
+
+move_ex_fallback :-
+    ex_mood(angry), !,
+    move_ex_base.
+
+move_ex_fallback :-
+    ex_mood(chaser), !,
+    move_ex_base, write("EX is chasing you frantically!"), nl.
+
+move_ex_fallback :-
+    ex_mood(emotional), !,
+    player_location(PlayerRoom),
+    move_ex_toward(PlayerRoom).
+
+move_ex_fallback :-
+    move_ex_base.
+
+move_ex_toward(TargetRoom) :-
+    npc_location(Current),
+    Current \== TargetRoom,
+    findall(Next, connected(Current, Next, _), Neighbors),
+    random_member(Next, Neighbors),
+    retract(npc_location(Current)),
+    assert(npc_location(Next)),
+    format('EX moves closer to you, now in ~w!~n', [Next]).
+
+move_ex_toward(_) :- true.
+
+move_ex_base :-
+    npc_location(Current),
+    findall(Dest, connected(Current, Dest, _), Neighbors),
+    Neighbors \== [],
+    random_member(Next, Neighbors),
+    retract(npc_location(Current)),
+    assert(npc_location(Next)),
+    format('EX moves to ~w!~n', [Next]).
+
+move_ex_base :- write("EX cannot move!"), nl.
+
+% PDDL PLANNER INTERFACE (OPTIONAL)
+
+% Stub for PDDL planner call, returns fail to use fallback
+call_pddl_planner(_NextRoom) :- fail.
+
+
+% KNOWLEDGE BASE: RULES (FOUR TYPES OF CONDITIONS TO ENDING)
+
+% Win condition: reach exit with key and suitcase, EX not at exit
+win_condition :-
+    game_over(false),
+    player_location(exit),
+    inventory(Items), member(key, Items), member(suitcase, Items),
+    npc_location(ExLoc), ExLoc \== exit,
+    write("=========================================================="), nl,
+    write("VICTORY! The door opens, cold wind pours in."), nl,
+    write("You hear 'goodbye' from behind... You escaped!"), nl,
+    write("=========================================================="), nl,
+    retractall(game_over(_)), assert(game_over(true)),
+    !.
+
+% Reconcile condition: in living room with photo, EX emotional
+reconcile_condition :-
+    game_over(false),
+    player_location(living_room),
+    inventory(Items), member(photo, Items),
+    ex_mood(emotional),
+    write("=========================================================="), nl,
+    write("HAPPY ENDING: You hand over the old photo."), nl,
+    write("EX's eyes redden: 'Shall we... try again?'"), nl,
+    write("This time, you didn't argue. Not running away is an answer too."), nl,
+    write("=========================================================="), nl,
+    retractall(game_over(_)), assert(game_over(true)),
+    !.
+
+% Lose condition 1: mental breakdown
+lose_condition :-
+    game_over(false),
+    mental(M), M =< 0,
+    write("=========================================================="), nl,
+    write("DEFEAT: Mental breakdown. You collapse, unable to escape..."), nl,
+    write("=========================================================="), nl,
+    retractall(game_over(_)), assert(game_over(true)),
+    !.
+
+% Lose condition 2: caught by EX
+lose_condition :-
+    game_over(false),
+    player_location(P), npc_location(P), P \== exit,
+    (P == hallway -> Prob = 70; Prob = 30),
+    random(0, 100, Rand), Rand < Prob,
+    write("=========================================================="), nl,
+    write("BAD ENDING: EX grabs your wrist: 'Don't go...'"), nl,
+    write("You are dragged back to the past."), nl,
+    write("=========================================================="), nl,
+    retractall(game_over(_)), assert(game_over(true)),
+    !.
+
+% Required library for random number generation
+:- use_module(library(random)).
